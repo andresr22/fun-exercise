@@ -106,12 +106,16 @@ func (s stores) increments(k string) {
 }
 
 func (s stores) decrements(k string) {
-	if _, ok := s.storeInt[k]; !ok {
+	_, okInt := s.storeInt[k]
+	_, okString := s.storeString[k]
+	if !okInt && !okString {
 		s.storeInt[k] = -1
 		fmt.Println(s.storeInt[k])
-	} else {
+	} else if okInt && !okString {
 		s.storeInt[k] -= 1
 		fmt.Println(s.storeInt[k])
+	} else {
+		fmt.Println("value of", k, "is string", "[", s.storeString[k], "]")
 	}
 }
 
