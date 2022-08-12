@@ -9,12 +9,18 @@ import (
 	"strings"
 )
 
-var storeInt = make(map[string]int)
-
-// var storeString = make(map[string]string)
+type stores struct {
+	storeInt    map[string]int
+	storeString map[string]string
+}
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
+
+	s := stores{
+		storeInt:    make(map[string]int),
+		storeString: make(map[string]string),
+	}
 
 	for {
 		fmt.Print("> ")
@@ -36,30 +42,32 @@ func main() {
 
 		switch action {
 		case "INCR":
-			increments(key)
+			s.increments(key)
 		case "DECR":
-			decrements(key)
+			s.decrements(key)
 		case "GET":
-			i, err := get(key)
+			s, err := s.getValues(key)
 			if err != nil {
 				fmt.Println(err)
 			} else {
-				fmt.Println(i)
+				fmt.Println(s)
 			}
 		case "SET":
 			value := is[2]
-			i, _ := strconv.Atoi(value)
-			sets(key, i)
+			s.sets(key, value)
+		case "DELETE":
+			s.delete(key)
 		}
 	}
 }
 
 func validateInput(is []string) error {
 	actions := map[string]int{
-		"INCR": 1,
-		"DECR": 2,
-		"GET":  3,
-		"SET":  4,
+		"INCR":   1,
+		"DECR":   2,
+		"GET":    3,
+		"SET":    4,
+		"DELETE": 5,
 	}
 
 	if (len(is) >= 4) || (is[0] != "SET" && len(is) >= 3) {
@@ -73,35 +81,59 @@ func validateInput(is []string) error {
 	return nil
 }
 
-func get(k string) (int, error) {
-	if _, ok := storeInt[k]; !ok {
-		return 0, errors.New(k + " does not exist")
-	}
-
-	return storeInt[k], nil
-}
-
-func increments(k string) {
-	if _, ok := storeInt[k]; !ok {
-		storeInt[k] = 1
-		fmt.Println(storeInt[k])
+func (s stores) getValues(k string) (string, error) {
+	if _, ok := s.storeInt[k]; ok {
+		return fmt.Sprint(s.storeInt[k]), nil
+	} else if _, ok := s.storeString[k]; ok {
+		return s.storeString[k], nil
 	} else {
-		storeInt[k] += 1
-		fmt.Println(storeInt[k])
+		return "", errors.New(k + " does not exist")
 	}
 }
 
-func decrements(k string) {
-	if _, ok := storeInt[k]; !ok {
-		storeInt[k] = -1
-		fmt.Println(storeInt[k])
+func (s stores) increments(k string) {
+	_, okInt := s.storeInt[k]
+	_, okString := s.storeString[k]
+	if !okInt && !okString {
+		s.storeInt[k] = 1
+		fmt.Println(s.storeInt[k])
+	} else if okInt && !okString {
+		s.storeInt[k] += 1
+		fmt.Println(s.storeInt[k])
 	} else {
-		storeInt[k] -= 1
-		fmt.Println(storeInt[k])
+		fmt.Println("value of", k, "is string", "[", s.storeString[k], "]")
 	}
 }
 
-func sets(k string, v int) {
-	storeInt[k] = v
-	fmt.Println(storeInt[k])
+func (s stores) decrements(k string) {
+	if _, ok := s.storeInt[k]; !ok {
+		s.storeInt[k] = -1
+		fmt.Println(s.storeInt[k])
+	} else {
+		s.storeInt[k] -= 1
+		fmt.Println(s.storeInt[k])
+	}
+}
+
+func (s stores) sets(k string, v string) {
+	i, err := strconv.Atoi(v)
+	if err != nil {
+		s.storeString[k] = v
+		fmt.Println(s.storeString[k])
+	} else {
+		s.storeInt[k] = i
+		fmt.Println(s.storeInt[k])
+	}
+}
+
+func (s stores) delete(k string) {
+	_, okInt := s.storeInt[k]
+	_, okString := s.storeString[k]
+	if !okInt && !okString {
+		fmt.Println(k, "does not exist")
+	} else {
+		delete(s.storeInt, k)
+		delete(s.storeString, k)
+		fmt.Println("ok")
+	}
 }
