@@ -19,26 +19,8 @@ type transaction struct {
 	stores
 }
 
-var actions = make(map[string]int)
-var transactions = make(map[string]int)
-
 func main() {
 	reader := bufio.NewReader(os.Stdin)
-
-	actions = map[string]int{
-		"INCR":   1,
-		"DECR":   2,
-		"GET":    3,
-		"SET":    4,
-		"DELETE": 5,
-	}
-
-	transactions = map[string]int{
-		"BEGIN":    1,
-		"COMMIT":   2,
-		"ROLLBACK": 3,
-		"PRINT":    4,
-	}
 
 	s := stores{
 		storeInt:    make(map[string]int),
@@ -72,7 +54,7 @@ func main() {
 
 		action := is[0]
 		key := ""
-		if !stringInMap(transactions, is[0]) {
+		if len(is) > 1 {
 			key = is[1]
 		}
 
@@ -130,6 +112,21 @@ func (pointerToTransaction *transaction) copyMaps(s stores) {
 }
 
 func validateInput(is []string) error {
+
+	actions := map[string]int{
+		"INCR":   1,
+		"DECR":   2,
+		"GET":    3,
+		"SET":    4,
+		"DELETE": 5,
+	}
+
+	transactions := map[string]int{
+		"BEGIN":    1,
+		"COMMIT":   2,
+		"ROLLBACK": 3,
+		"PRINT":    4,
+	}
 
 	if (len(is) >= 4) || (is[0] != "SET" && len(is) >= 3) {
 		return errors.New("too many arguments")
