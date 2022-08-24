@@ -149,35 +149,29 @@ func (s stores) getValues(k string) (string, error) {
 	}
 }
 
-func (s stores) increments(k string) string {
+func (s stores) increments(k string) {
 	_, okString := s.storeString[k]
 	if !stringInMap(s.storeInt, k) && !okString {
 		s.storeInt[k] = 1
 		fmt.Println(s.storeInt[k])
-		return fmt.Sprint(s.storeInt[k])
 	} else if stringInMap(s.storeInt, k) && !okString {
 		s.storeInt[k] += 1
 		fmt.Println(s.storeInt[k])
-		return fmt.Sprint(s.storeInt[k])
 	} else {
 		fmt.Println("value of", k, "is string", "[", s.storeString[k], "]")
-		return "value of " + k + " is string " + "[" + s.storeString[k] + "]"
 	}
 }
 
-func (s stores) decrements(k string) string {
+func (s stores) decrements(k string) {
 	_, okString := s.storeString[k]
 	if !stringInMap(s.storeInt, k) && !okString {
 		s.storeInt[k] = -1
 		fmt.Println(s.storeInt[k])
-		return fmt.Sprint(s.storeInt[k])
 	} else if stringInMap(s.storeInt, k) && !okString {
 		s.storeInt[k] -= 1
 		fmt.Println(s.storeInt[k])
-		return fmt.Sprint(s.storeInt[k])
 	} else {
 		fmt.Println("value of", k, "is string", "[", s.storeString[k], "]")
-		return "value of " + k + " is string " + "[" + s.storeString[k] + "]"
 	}
 }
 
