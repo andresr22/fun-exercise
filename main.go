@@ -2,40 +2,63 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 )
 
-type stores struct {
-	storeInt    map[string]int
-	storeString map[string]string
+type CacheError string
+
+const (
+	TooManyArguments     CacheError = "too many arguments"
+	InvalidAction        CacheError = "invalid action"
+	MissingArguments     CacheError = "missing arguments"
+	CannotIncrStr        CacheError = "cannot increment string"
+	CannotDecrStr        CacheError = "cannor decrement string"
+	DoesNotExist         CacheError = "key does not exist"
+	NoTransactionStarted CacheError = "there is no transaction started"
+)
+
+var actions = map[string]interface{}{
+	"INCR":   1,
+	"DECR":   2,
+	"GET":    3,
+	"SET":    4,
+	"DELETE": 5,
 }
 
-type transaction struct {
+var transactions = map[string]interface{}{
+	"BEGIN":    1,
+	"COMMIT":   2,
+	"ROLLBACK": 3,
+	"PRINT":    4,
+}
+
+func (e CacheError) Error() string {
+	return string(e)
+}
+
+type TransactionInterface struct {
 	begin bool
-	stores
+	elem  map[string]interface{}
+}
+
+type StorageInterface struct {
+	elem        map[string]interface{}
+	transaction TransactionInterface
 }
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 
-	s := stores{
-		storeInt:    make(map[string]int),
-		storeString: make(map[string]string),
-	}
-	storesPointer := &s
-
-	t := transaction{
-		begin: false,
-		stores: stores{
-			storeInt:    make(map[string]int),
-			storeString: make(map[string]string),
+	s := StorageInterface{
+		elem: make(map[string]interface{}),
+		transaction: TransactionInterface{
+			begin: false,
+			elem:  make(map[string]interface{}),
 		},
 	}
-	transactionPointer := &t
 
 	for {
 		fmt.Print("> ")
@@ -44,8 +67,9 @@ func main() {
 		if input == "exit" {
 			os.Exit(0)
 		}
+
 		is := strings.Split(input, " ")
-		err := validateInput(is)
+		err := ValidateInput(is)
 
 		if err != nil {
 			fmt.Println(err)
@@ -60,189 +84,163 @@ func main() {
 
 		switch action {
 		case "INCR":
-			s.increments(key)
+			err = s.Incr(key)
 		case "DECR":
-			s.decrements(key)
+			err = s.Decr(key)
 		case "GET":
-			s, err := s.getValues(key)
-			if err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Println(s)
-			}
+			err = s.Get(key)
 		case "SET":
 			value := is[2]
-			s.sets(key, value)
+			err = s.Set(key, value)
 		case "DELETE":
-			s.delete(key)
+			err = s.Delete(key)
 		case "BEGIN":
-			s.beginTransaction(transactionPointer)
+			err = s.Begin()
 		case "COMMIT":
-			err = s.commitTransaction(transactionPointer)
-			if err != nil {
-				fmt.Println(err)
-			}
+			err = s.Commit()
 		case "ROLLBACK":
-			err = storesPointer.rollbackTransaction(transactionPointer)
-			if err != nil {
-				fmt.Println(err)
-			}
+			err = s.Rollback()
 		case "PRINT":
-			t.printTransaction()
-			s.printSores()
+			fmt.Println(s)
 		}
+
+		s.PrintResult(key, err)
 	}
 }
 
-func stringInMap(m map[string]int, s string) bool {
+func (s StorageInterface) PrintResult(key string, err error) {
+	switch err {
+	case nil:
+		switch KeyExists(s.elem, key) {
+		case true:
+			fmt.Println(s.elem[key])
+		default:
+			fmt.Println("ok")
+		}
+	default:
+		fmt.Println(err)
+	}
+}
+
+func KeyExists(m map[string]interface{}, s string) bool {
 	_, ok := m[s]
 	return ok
 }
 
-func (pointerToTransaction *transaction) copyMaps(s stores) {
-	(*pointerToTransaction).stores.storeInt = make(map[string]int)
-	for k, v := range s.storeInt {
-		(*pointerToTransaction).stores.storeInt[k] = v
+func ValidateInput(s []string) error {
+	if (len(s) >= 4) || (s[0] != "SET" && len(s) >= 3) {
+		return TooManyArguments
+	} else if !KeyExists(actions, s[0]) && !KeyExists(transactions, s[0]) {
+		return InvalidAction
+	} else if ((len(s) <= 1) || (s[0] == "SET" && len(s) <= 2)) && !KeyExists(transactions, s[0]) {
+		return MissingArguments
 	}
-
-	(*pointerToTransaction).stores.storeString = make(map[string]string)
-	for k, v := range s.storeString {
-		(*pointerToTransaction).stores.storeString[k] = v
-	}
-}
-
-func validateInput(is []string) error {
-
-	actions := map[string]int{
-		"INCR":   1,
-		"DECR":   2,
-		"GET":    3,
-		"SET":    4,
-		"DELETE": 5,
-	}
-
-	transactions := map[string]int{
-		"BEGIN":    1,
-		"COMMIT":   2,
-		"ROLLBACK": 3,
-		"PRINT":    4,
-	}
-
-	if (len(is) >= 4) || (is[0] != "SET" && len(is) >= 3) {
-		return errors.New("too many arguments")
-	} else if !stringInMap(actions, is[0]) && !stringInMap(transactions, is[0]) {
-		return errors.New("invalid action")
-	} else if ((len(is) <= 1) || (is[0] == "SET" && len(is) <= 2)) && !stringInMap(transactions, is[0]) {
-		return errors.New("missing arguments")
-	}
-
 	return nil
 }
 
-func (s stores) getValues(k string) (string, error) {
-	if stringInMap(s.storeInt, k) {
-		return fmt.Sprint(s.storeInt[k]), nil
-	} else if _, ok := s.storeString[k]; ok {
-		return s.storeString[k], nil
-	} else {
-		return "", errors.New(k + " does not exist")
+func (s *StorageInterface) CopyMap(b bool) {
+	// if b is true copy from elem to
+	// transaction.elem, otherwise
+	// copu from transaction.elem to elem
+	switch b {
+	case true:
+		s.transaction.elem = make(map[string]interface{})
+		for k, v := range s.elem {
+			s.transaction.elem[k] = v
+		}
+	default:
+		s.elem = make(map[string]interface{})
+		for k, v := range s.transaction.elem {
+			s.elem[k] = v
+		}
 	}
 }
 
-func (s stores) increments(k string) string {
-	_, okString := s.storeString[k]
-	if !stringInMap(s.storeInt, k) && !okString {
-		s.storeInt[k] = 1
-		fmt.Println(s.storeInt[k])
-		return fmt.Sprint(s.storeInt[k])
-	} else if stringInMap(s.storeInt, k) && !okString {
-		s.storeInt[k] += 1
-		fmt.Println(s.storeInt[k])
-		return fmt.Sprint(s.storeInt[k])
-	} else {
-		fmt.Println("value of", k, "is string", "[", s.storeString[k], "]")
-		return "value of " + k + " is string " + "[" + s.storeString[k] + "]"
+func (s *StorageInterface) Set(key string, value interface{}) error {
+	i, err := strconv.Atoi(fmt.Sprintf("%v", value))
+	switch err {
+	case nil:
+		s.elem[key] = i
+	default:
+		s.elem[key] = value
 	}
-}
-
-func (s stores) decrements(k string) string {
-	_, okString := s.storeString[k]
-	if !stringInMap(s.storeInt, k) && !okString {
-		s.storeInt[k] = -1
-		fmt.Println(s.storeInt[k])
-		return fmt.Sprint(s.storeInt[k])
-	} else if stringInMap(s.storeInt, k) && !okString {
-		s.storeInt[k] -= 1
-		fmt.Println(s.storeInt[k])
-		return fmt.Sprint(s.storeInt[k])
-	} else {
-		fmt.Println("value of", k, "is string", "[", s.storeString[k], "]")
-		return "value of " + k + " is string " + "[" + s.storeString[k] + "]"
-	}
-}
-
-func (s stores) sets(k string, v string) {
-	i, err := strconv.Atoi(v)
-	if err != nil {
-		s.storeString[k] = v
-		fmt.Println(s.storeString[k])
-	} else {
-		s.storeInt[k] = i
-		fmt.Println(s.storeInt[k])
-	}
-}
-
-func (s stores) delete(k string) {
-	_, okString := s.storeString[k]
-	if !stringInMap(s.storeInt, k) && !okString {
-		fmt.Println(k, "does not exist")
-	} else {
-		delete(s.storeInt, k)
-		delete(s.storeString, k)
-		fmt.Println("ok")
-	}
-}
-
-func (s stores) beginTransaction(pointerToTransaction *transaction) {
-	(*pointerToTransaction).begin = true
-
-	pointerToTransaction.copyMaps(s)
-	fmt.Println("ok")
-}
-
-func (s stores) commitTransaction(pointerToTransaction *transaction) error {
-	if !(*pointerToTransaction).begin {
-		return errors.New("there is no transaction started")
-	}
-
-	pointerToTransaction.copyMaps(s)
-	fmt.Println("ok")
 	return nil
 }
 
-func (pointerToStores *stores) rollbackTransaction(pointerToTransaction *transaction) error {
-	if !(*pointerToTransaction).begin {
-		return errors.New("there is no transaction started")
+func (s *StorageInterface) Get(key string) error {
+	switch KeyExists(s.elem, key) {
+	case true:
+		return nil
+	default:
+		return DoesNotExist
 	}
+}
 
-	(*pointerToStores).storeInt = make(map[string]int)
-	for k, v := range (*pointerToTransaction).stores.storeInt {
-		(*pointerToStores).storeInt[k] = v
+func (s *StorageInterface) Delete(key string) error {
+	switch KeyExists(s.elem, key) {
+	case true:
+		delete(s.elem, key)
+	default:
+		return DoesNotExist
 	}
-
-	(*pointerToTransaction).stores.storeString = make(map[string]string)
-	for k, v := range (*pointerToTransaction).stores.storeString {
-		(*pointerToStores).storeString[k] = v
-	}
-
-	fmt.Println("ok")
 	return nil
 }
 
-func (t transaction) printTransaction() {
-	fmt.Println(t)
+func (s *StorageInterface) Incr(key string) error {
+	switch v := s.elem[key].(type) {
+	case nil:
+		s.elem[key] = 1
+	case int:
+		s.elem[key] = v + 1
+	default:
+		return CannotIncrStr
+	}
+	return nil
 }
 
-func (s stores) printSores() {
-	fmt.Println(s)
+func (s *StorageInterface) Decr(key string) error {
+	switch v := s.elem[key].(type) {
+	case nil:
+		s.elem[key] = -1
+	case int:
+		s.elem[key] = v - 1
+	default:
+		return CannotDecrStr
+	}
+	return nil
 }
+
+func (s *StorageInterface) Begin() error {
+	s.transaction.begin = true
+	s.CopyMap(true)
+	return nil
+}
+
+func (s *StorageInterface) Commit() error {
+	switch s.transaction.begin {
+	case true:
+		s.CopyMap(true)
+	default:
+		return NoTransactionStarted
+	}
+	return nil
+}
+
+func (s *StorageInterface) Rollback() error {
+	switch s.transaction.begin {
+	case true:
+		s.CopyMap(false)
+	default:
+		return NoTransactionStarted
+	}
+	return nil
+}
+
+// func (s *StorageInterface) IsString(key string) bool {
+// 	switch s.elem[key].(type) {
+// 	case string:
+// 		return true
+// 	default:
+// 		return false
+// 	}
+// }
