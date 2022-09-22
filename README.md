@@ -56,3 +56,33 @@ ok
 > GET anotherkey
 15
 ```
+
+
+## Nested transactions
+
+```
+INCR key
+1
+BEGIN
+ok
+INCR key
+2
+SET hello world
+world
+BEGIN
+ok
+INCR key
+3
+SET anotherstring hello
+hello
+ROLLBACK
+ok
+GET key
+2
+GET hello
+world
+GET anotherstring
+anotherstring does not exist
+COMMIT
+```
+
