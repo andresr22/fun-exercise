@@ -39,25 +39,17 @@ func (e CacheError) Error() string {
 	return string(e)
 }
 
-type TransactionInterface struct {
-	begin bool
-	elem  map[string]interface{}
-}
-
 type StorageInterface struct {
 	elem        map[string]interface{}
-	transaction TransactionInterface
+	transaction []map[string]interface{}
 }
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 
 	s := StorageInterface{
-		elem: make(map[string]interface{}),
-		transaction: TransactionInterface{
-			begin: false,
-			elem:  make(map[string]interface{}),
-		},
+		elem:        make(map[string]interface{}),
+		transaction: make([]map[string]interface{}, 0, 0),
 	}
 
 	for {
@@ -101,7 +93,8 @@ func main() {
 		case "ROLLBACK":
 			err = s.Rollback()
 		case "PRINT":
-			fmt.Println(s)
+			fmt.Println("s.elem: ", s.elem)
+			fmt.Println("s.transaction: ", s.transaction)
 		}
 
 		s.PrintResult(key, err)
@@ -139,20 +132,22 @@ func ValidateInput(s []string) error {
 }
 
 func (s *StorageInterface) CopyMap(b bool) {
-	// if b is true copy from elem to
-	// transaction.elem, otherwise
-	// copu from transaction.elem to elem
+	// if b is true then enqueue an elem
+	// otherwise dequeue and the last elem
 	switch b {
 	case true:
-		s.transaction.elem = make(map[string]interface{})
+		m := make(map[string]interface{})
 		for k, v := range s.elem {
-			s.transaction.elem[k] = v
+			m[k] = v
 		}
+		s.transaction = append(s.transaction, m)
 	default:
+		elem := s.transaction[len(s.transaction)-1]
 		s.elem = make(map[string]interface{})
-		for k, v := range s.transaction.elem {
+		for k, v := range elem {
 			s.elem[k] = v
 		}
+		s.transaction = s.transaction[:len(s.transaction)-1]
 	}
 }
 
@@ -211,27 +206,27 @@ func (s *StorageInterface) Decr(key string) error {
 }
 
 func (s *StorageInterface) Begin() error {
-	s.transaction.begin = true
+	// s.transaction.begin = true
 	s.CopyMap(true)
 	return nil
 }
 
 func (s *StorageInterface) Commit() error {
-	switch s.transaction.begin {
-	case true:
-		s.CopyMap(true)
-	default:
+	switch len(s.transaction) {
+	case 0:
 		return NoTransactionStarted
+	default:
+		s.CopyMap(true)
 	}
 	return nil
 }
 
 func (s *StorageInterface) Rollback() error {
-	switch s.transaction.begin {
-	case true:
-		s.CopyMap(false)
-	default:
+	switch len(s.transaction) {
+	case 0:
 		return NoTransactionStarted
+	default:
+		s.CopyMap(false)
 	}
 	return nil
 }
