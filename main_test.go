@@ -45,9 +45,9 @@ func TestValidateInput(t *testing.T) {
 		err := ValidateInput(strings.Split(tt.input, " "))
 		if tt.hasError {
 			assert.Error(t, err, "test[%d]: %s", i, tt.input)
+			assert.IsType(t, tt.errorKind, err)
 		} else {
 			assert.NoError(t, err, "test[%d]: %s", i, tt.input)
-			assert.IsType(t, tt.errorKind, err)
 		}
 	}
 }
