@@ -49,7 +49,7 @@ func main() {
 
 	s := StorageInterface{
 		elem:        make(map[string]interface{}),
-		transaction: make([]map[string]interface{}, 0, 0),
+		transaction: make([]map[string]interface{}, 0),
 	}
 
 	for {
