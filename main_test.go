@@ -64,42 +64,28 @@ func TestCopyMap(t *testing.T) {
 					"test1": 1,
 					"test2": "test",
 				},
-				transaction: TransactionInterface{
-					begin: false,
-					elem:  make(map[string]interface{}),
-				},
+				transaction: make([]map[string]interface{}, 0),
 			},
 			true,
-		},
-
-		{
-			StorageInterface{
-				elem: make(map[string]interface{}),
-				transaction: TransactionInterface{
-					begin: false,
-					elem: map[string]interface{}{
-						"test1": 1,
-						"test2": "test",
-					},
-				},
-			},
-			false,
 		},
 	}
 
 	for i, tt := range tests {
-		tt.s.CopyMap(tt.fromelem)
-		assert.Equal(t, tt.s.elem, tt.s.transaction.elem, "test[%d]: elem(%s) -> transaction.elem(%s)", i, tt.s.elem, tt.s.transaction.elem)
+		switch tt.fromelem {
+		case true:
+			tt.s.CopyMap(tt.fromelem)
+		default:
+			tt.s.transaction = append(tt.s.transaction, map[string]interface{}{"test1": 1, "test2": "test"})
+		}
+
+		assert.Equal(t, tt.s.elem, tt.s.transaction[len(tt.s.transaction)-1], "test[%d]: elem(%s) -> transaction.elem(%s)", i, tt.s.elem, tt.s.transaction[len(tt.s.transaction)-1])
 	}
 }
 
 func TestSet(t *testing.T) {
 	s := StorageInterface{
-		elem: make(map[string]interface{}),
-		transaction: TransactionInterface{
-			begin: false,
-			elem:  make(map[string]interface{}),
-		},
+		elem:        make(map[string]interface{}),
+		transaction: make([]map[string]interface{}, 0),
 	}
 	tests := []struct {
 		key   string
