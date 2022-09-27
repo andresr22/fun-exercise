@@ -105,3 +105,32 @@ func TestSet(t *testing.T) {
 		}
 	}
 }
+
+func TestGet(t *testing.T) {
+	s := StorageInterface{
+		elem: map[string]interface{}{
+			"test1": 1,
+			"test2": "test",
+		},
+		transaction: make([]map[string]interface{}, 0),
+	}
+	tests := []struct {
+		s         StorageInterface
+		key       string
+		hasError  bool
+		errorKind error
+	}{
+		{s, "test1", false, nil},
+		{s, "key", true, DoesNotExist},
+	}
+
+	for i, tt := range tests {
+		err := s.Get(tt.key)
+		if tt.hasError {
+			assert.Error(t, err, "test[%d]: %s", i, tt.key)
+			assert.IsType(t, tt.errorKind, err)
+		} else {
+			assert.True(t, KeyExists(tt.s.elem, tt.key), "test[%d]: %s", i, tt.key)
+		}
+	}
+}
