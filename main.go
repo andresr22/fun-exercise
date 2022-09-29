@@ -41,7 +41,7 @@ func (e CacheError) Error() string {
 
 type StorageInterface struct {
 	elem        map[string]interface{}
-	transaction []map[string]interface{}
+	transaction *Stack
 }
 
 func main() {
@@ -49,7 +49,7 @@ func main() {
 
 	s := StorageInterface{
 		elem:        make(map[string]interface{}),
-		transaction: make([]map[string]interface{}, 0),
+		transaction: NewStack(),
 	}
 
 	for {
@@ -94,7 +94,9 @@ func main() {
 			err = s.Rollback()
 		case "PRINT":
 			fmt.Println("s.elem: ", s.elem)
-			fmt.Println("s.transaction: ", s.transaction)
+			fmt.Print("s.transaction: ")
+			s.transaction.Print()
+			fmt.Println()
 		}
 
 		s.PrintResult(key, err)
@@ -140,14 +142,13 @@ func (s *StorageInterface) CopyMap(b bool) {
 		for k, v := range s.elem {
 			m[k] = v
 		}
-		s.transaction = append(s.transaction, m)
+		s.transaction.Push(&Node{m})
 	default:
-		elem := s.transaction[len(s.transaction)-1]
+		elem := s.transaction.Pop()
 		s.elem = make(map[string]interface{})
-		for k, v := range elem {
+		for k, v := range elem.value {
 			s.elem[k] = v
 		}
-		s.transaction = s.transaction[:len(s.transaction)-1]
 	}
 }
 
@@ -206,28 +207,23 @@ func (s *StorageInterface) Decr(key string) error {
 }
 
 func (s *StorageInterface) Begin() error {
-	// s.transaction.begin = true
 	s.CopyMap(true)
 	return nil
 }
 
 func (s *StorageInterface) Commit() error {
-	switch len(s.transaction) {
-	case 0:
+	if s.transaction.size == 0 {
 		return NoTransactionStarted
-	default:
-		s.CopyMap(true)
 	}
+	s.CopyMap(true)
 	return nil
 }
 
 func (s *StorageInterface) Rollback() error {
-	switch len(s.transaction) {
-	case 0:
+	if s.transaction.size == 0 {
 		return NoTransactionStarted
-	default:
-		s.CopyMap(false)
 	}
+	s.CopyMap(false)
 	return nil
 }
 

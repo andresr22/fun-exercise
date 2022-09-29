@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -65,28 +64,37 @@ func TestCopyMap(t *testing.T) {
 					"test1": 1,
 					"test2": "test",
 				},
-				transaction: make([]map[string]interface{}, 0),
+				transaction: NewStack(),
 			},
 			true,
+		},
+		{
+			StorageInterface{
+				elem:        make(map[string]interface{}),
+				transaction: NewStack(),
+			},
+			false,
 		},
 	}
 
 	for i, tt := range tests {
+		transaction := map[string]interface{}{"key": 1, "key1": "string"}
+		tt.s.transaction.Push(&Node{transaction})
 		switch tt.fromelem {
 		case true:
 			tt.s.CopyMap(tt.fromelem)
+			transaction = tt.s.transaction.Pop().value
 		default:
-			tt.s.transaction = append(tt.s.transaction, map[string]interface{}{"test1": 1, "test2": "test"})
+			tt.s.CopyMap(tt.fromelem)
 		}
-
-		assert.Equal(t, tt.s.elem, tt.s.transaction[len(tt.s.transaction)-1], "test[%d]: elem(%s) -> transaction.elem(%s)", i, tt.s.elem, tt.s.transaction[len(tt.s.transaction)-1])
+		assert.Equal(t, tt.s.elem, transaction, "test[%d]: elem(%s) -> transaction.elem(%s)", i, tt.s.elem, transaction)
 	}
 }
 
 func TestSet(t *testing.T) {
 	s := StorageInterface{
 		elem:        make(map[string]interface{}),
-		transaction: make([]map[string]interface{}, 0),
+		transaction: NewStack(),
 	}
 	tests := []struct {
 		key   string
@@ -113,7 +121,7 @@ func TestGet(t *testing.T) {
 			"test1": 1,
 			"test2": "test",
 		},
-		transaction: make([]map[string]interface{}, 0),
+		transaction: NewStack(),
 	}
 	tests := []struct {
 		s         StorageInterface
@@ -142,7 +150,7 @@ func TestDelete(t *testing.T) {
 			"test1": 1,
 			"test2": "test",
 		},
-		transaction: make([]map[string]interface{}, 0),
+		transaction: NewStack(),
 	}
 	tests := []struct {
 		s         StorageInterface
@@ -157,7 +165,6 @@ func TestDelete(t *testing.T) {
 	for i, tt := range tests {
 		err := s.Delete(tt.key)
 		if tt.hasError {
-			fmt.Println(err)
 			assert.Error(t, err, "test[%d]: %s", i, tt.key)
 			assert.IsType(t, tt.errorKind, err)
 		} else {
