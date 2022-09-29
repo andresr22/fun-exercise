@@ -172,3 +172,61 @@ func TestDelete(t *testing.T) {
 		}
 	}
 }
+
+func TestIncr(t *testing.T) {
+	s := StorageInterface{
+		elem: map[string]interface{}{
+			"test1": 1,
+			"test2": "test",
+		},
+		transaction: NewStack(),
+	}
+	tests := []struct {
+		key       string
+		value     int
+		hasError  bool
+		errorKind error
+	}{
+		{"test1", 2, false, nil},
+		{"test2", 0, true, CannotIncrStr},
+	}
+
+	for i, tt := range tests {
+		err := s.Incr(tt.key)
+		if tt.hasError {
+			assert.Error(t, err, "test[%d]: %s", i, tt.key)
+			assert.IsType(t, tt.errorKind, err)
+		} else {
+			assert.Equal(t, s.elem[tt.key], tt.value, "test[%d]: %s", i, tt.key)
+		}
+	}
+}
+
+func TestDecr(t *testing.T) {
+	s := StorageInterface{
+		elem: map[string]interface{}{
+			"test1": 1,
+			"test2": "test",
+		},
+		transaction: NewStack(),
+	}
+	tests := []struct {
+		key       string
+		value     int
+		hasError  bool
+		errorKind error
+	}{
+		{"test1", 0, false, nil},
+		{"test2", 0, true, CannotIncrStr},
+	}
+
+	for i, tt := range tests {
+		err := s.Decr(tt.key)
+		if tt.hasError {
+			assert.Error(t, err, "test[%d]: %s", i, tt.key)
+			assert.IsType(t, tt.errorKind, err)
+		} else {
+			assert.Equal(t, s.elem[tt.key], tt.value, "test[%d]: %s", i, tt.key)
+		}
+	}
+}
