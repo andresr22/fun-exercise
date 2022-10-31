@@ -18,6 +18,7 @@ const (
 	CannotDecrStr        CacheError = "cannor decrement string"
 	DoesNotExist         CacheError = "key does not exist"
 	NoTransactionStarted CacheError = "there is no transaction started"
+	StoreEmpty           CacheError = "Store is empty"
 )
 
 var actions = map[string]interface{}{
@@ -39,18 +40,11 @@ func (e CacheError) Error() string {
 	return string(e)
 }
 
-type StorageInterface struct {
-	elem        map[string]interface{}
-	transaction *Stack
-}
-
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 
-	s := StorageInterface{
-		elem:        make(map[string]interface{}),
-		transaction: NewStack(),
-	}
+	store := new(Store)
+	store.Push(make(Data))
 
 	for {
 		fmt.Print("> ")
@@ -76,39 +70,39 @@ func main() {
 
 		switch action {
 		case "INCR":
-			err = s.Incr(key)
+			err = store.Incr(key)
 		case "DECR":
-			err = s.Decr(key)
+			err = store.Decr(key)
 		case "GET":
-			err = s.Get(key)
+			err = store.Get(key)
 		case "SET":
 			value := is[2]
-			err = s.Set(key, value)
+			err = store.Set(key, value)
 		case "DELETE":
-			err = s.Delete(key)
+			err = store.Delete(key)
 		case "BEGIN":
-			err = s.Begin()
+			err = store.Begin()
 		case "COMMIT":
-			err = s.Commit()
+			err = store.Commit()
 		case "ROLLBACK":
-			err = s.Rollback()
+			err = store.Rollback()
 		case "PRINT":
-			fmt.Println("s.elem: ", s.elem)
-			fmt.Print("s.transaction: ")
-			s.transaction.Print()
+			fmt.Println("store head: ", store.head)
+			fmt.Println("store tail: ", store.tail)
+			store.Print()
 			fmt.Println()
 		}
 
-		s.PrintResult(key, err)
+		store.PrintResult(key, err)
 	}
 }
 
-func (s StorageInterface) PrintResult(key string, err error) {
+func (s Store) PrintResult(key string, err error) {
 	switch err {
 	case nil:
-		switch KeyExists(s.elem, key) {
+		switch KeyExists(s.tail.data, key) {
 		case true:
-			fmt.Println(s.elem[key])
+			fmt.Println(s.tail.data[key])
 		default:
 			fmt.Println("ok")
 		}
@@ -133,38 +127,19 @@ func ValidateInput(s []string) error {
 	return nil
 }
 
-func (s *StorageInterface) CopyMap(b bool) {
-	// if b is true then enqueue an elem
-	// otherwise dequeue and the last elem
-	switch b {
-	case true:
-		m := make(map[string]interface{})
-		for k, v := range s.elem {
-			m[k] = v
-		}
-		s.transaction.Push(&Node{m})
-	default:
-		elem := s.transaction.Pop()
-		s.elem = make(map[string]interface{})
-		for k, v := range elem.value {
-			s.elem[k] = v
-		}
-	}
-}
-
-func (s *StorageInterface) Set(key string, value interface{}) error {
+func (s *Store) Set(key string, value interface{}) error {
 	i, err := strconv.Atoi(fmt.Sprintf("%v", value))
 	switch err {
 	case nil:
-		s.elem[key] = i
+		s.tail.data[key] = i
 	default:
-		s.elem[key] = value
+		s.tail.data[key] = value
 	}
 	return nil
 }
 
-func (s *StorageInterface) Get(key string) error {
-	switch KeyExists(s.elem, key) {
+func (s *Store) Get(key string) error {
+	switch KeyExists(s.tail.data, key) {
 	case true:
 		return nil
 	default:
@@ -172,66 +147,59 @@ func (s *StorageInterface) Get(key string) error {
 	}
 }
 
-func (s *StorageInterface) Delete(key string) error {
-	switch KeyExists(s.elem, key) {
+func (s *Store) Delete(key string) error {
+	switch KeyExists(s.tail.data, key) {
 	case true:
-		delete(s.elem, key)
+		delete(s.tail.data, key)
 	default:
 		return DoesNotExist
 	}
 	return nil
 }
 
-func (s *StorageInterface) Incr(key string) error {
-	switch v := s.elem[key].(type) {
+func (s *Store) Incr(key string) error {
+	switch v := s.tail.data[key].(type) {
 	case nil:
-		s.elem[key] = 1
+		s.tail.data[key] = 1
 	case int:
-		s.elem[key] = v + 1
+		s.tail.data[key] = v + 1
 	default:
 		return CannotIncrStr
 	}
 	return nil
 }
 
-func (s *StorageInterface) Decr(key string) error {
-	switch v := s.elem[key].(type) {
+func (s *Store) Decr(key string) error {
+	switch v := s.tail.data[key].(type) {
 	case nil:
-		s.elem[key] = -1
+		s.tail.data[key] = -1
 	case int:
-		s.elem[key] = v - 1
+		s.tail.data[key] = v - 1
 	default:
 		return CannotDecrStr
 	}
 	return nil
 }
 
-func (s *StorageInterface) Begin() error {
-	s.CopyMap(true)
-	return nil
-}
-
-func (s *StorageInterface) Commit() error {
-	if s.transaction.size == 0 {
-		return NoTransactionStarted
+func (s *Store) Begin() error {
+	m := make(Data)
+	for k, v := range s.tail.data {
+		m[k] = v
 	}
-	s.CopyMap(true)
+	s.Push(m)
 	return nil
 }
 
-func (s *StorageInterface) Rollback() error {
-	if s.transaction.size == 0 {
-		return NoTransactionStarted
+func (s *Store) Commit() error {
+	m := make(Data)
+	for k, v := range s.tail.data {
+		m[k] = v
 	}
-	s.CopyMap(false)
+	s.Push(m)
 	return nil
 }
 
-// func (s *StorageInterface) IsString(key string) bool {
-// 	switch s.elem[key].(type) {
-// 	case string:
-// 		return true
-// 	default:
-// 		return false
-// 	}
-// }
+func (s *Store) Rollback() error {
+	_, err := s.Pop()
+	return err
+}
