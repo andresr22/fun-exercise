@@ -45,6 +45,7 @@ func main() {
 
 	store := new(Store)
 	store.Push(make(Data))
+	store.Push(make(Data))
 
 	for {
 		fmt.Print("> ")
@@ -90,6 +91,7 @@ func main() {
 			fmt.Println("store head: ", store.head)
 			fmt.Println("store tail: ", store.tail)
 			store.Print()
+			fmt.Println("Size: ", store.Size())
 			fmt.Println()
 		}
 
@@ -100,9 +102,9 @@ func main() {
 func (s Store) PrintResult(key string, err error) {
 	switch err {
 	case nil:
-		switch KeyExists(s.tail.data, key) {
+		switch KeyExists(s.head.data, key) {
 		case true:
-			fmt.Println(s.tail.data[key])
+			fmt.Println(s.head.data[key])
 		default:
 			fmt.Println("ok")
 		}
@@ -131,15 +133,16 @@ func (s *Store) Set(key string, value interface{}) error {
 	i, err := strconv.Atoi(fmt.Sprintf("%v", value))
 	switch err {
 	case nil:
-		s.tail.data[key] = i
+		s.head.data[key] = i
 	default:
-		s.tail.data[key] = value
+		s.head.data[key] = value
 	}
+	s.tail.data[key] = s.head.data[key]
 	return nil
 }
 
 func (s *Store) Get(key string) error {
-	switch KeyExists(s.tail.data, key) {
+	switch KeyExists(s.head.data, key) {
 	case true:
 		return nil
 	default:
@@ -151,6 +154,7 @@ func (s *Store) Delete(key string) error {
 	switch KeyExists(s.tail.data, key) {
 	case true:
 		delete(s.tail.data, key)
+		delete(s.head.data, key)
 	default:
 		return DoesNotExist
 	}
@@ -158,48 +162,45 @@ func (s *Store) Delete(key string) error {
 }
 
 func (s *Store) Incr(key string) error {
-	switch v := s.tail.data[key].(type) {
+	switch v := s.head.data[key].(type) {
 	case nil:
-		s.tail.data[key] = 1
+		s.head.data[key] = 1
 	case int:
-		s.tail.data[key] = v + 1
+		s.head.data[key] = v + 1
 	default:
 		return CannotIncrStr
 	}
+	s.tail.data[key] = s.head.data[key]
 	return nil
 }
 
 func (s *Store) Decr(key string) error {
-	switch v := s.tail.data[key].(type) {
+	switch v := s.head.data[key].(type) {
 	case nil:
-		s.tail.data[key] = -1
+		s.head.data[key] = -1
 	case int:
-		s.tail.data[key] = v - 1
+		s.head.data[key] = v - 1
 	default:
 		return CannotDecrStr
 	}
+	s.tail.data[key] = s.head.data[key]
 	return nil
 }
 
 func (s *Store) Begin() error {
-	m := make(Data)
-	for k, v := range s.tail.data {
-		m[k] = v
-	}
-	s.Push(m)
+	s.Push(make(Data))
 	return nil
 }
 
 func (s *Store) Commit() error {
-	m := make(Data)
-	for k, v := range s.tail.data {
-		m[k] = v
-	}
-	s.Push(m)
+	s.Push(make(Data))
 	return nil
 }
 
 func (s *Store) Rollback() error {
 	_, err := s.Pop()
+	for k, v := range s.tail.data {
+		s.head.data[k] = v
+	}
 	return err
 }
