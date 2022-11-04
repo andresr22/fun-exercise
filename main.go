@@ -205,7 +205,7 @@ func (s *Store) Rollback() error {
 	for k, v := range s.tail.data {
 		s.head.data[k] = v
 	}
-	for k, _ := range d {
+	for k := range d {
 		if !KeyExists(s.tail.data, k) {
 			delete(s.head.data, k)
 		}
