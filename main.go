@@ -18,7 +18,7 @@ const (
 	CannotDecrStr        CacheError = "cannor decrement string"
 	DoesNotExist         CacheError = "key does not exist"
 	NoTransactionStarted CacheError = "there is no transaction started"
-	StoreEmpty           CacheError = "Store is empty"
+	// StoreEmpty           CacheError = "store is empty"
 )
 
 var actions = map[string]interface{}{
@@ -88,11 +88,8 @@ func main() {
 		case "ROLLBACK":
 			err = store.Rollback()
 		case "PRINT":
-			fmt.Println("store head: ", store.head)
-			fmt.Println("store tail: ", store.tail)
 			store.Print()
-			fmt.Println("Size: ", store.Size())
-			fmt.Println()
+			// fmt.Println()
 		}
 
 		store.PrintResult(key, err)
@@ -151,7 +148,7 @@ func (s *Store) Get(key string) error {
 }
 
 func (s *Store) Delete(key string) error {
-	switch KeyExists(s.tail.data, key) {
+	switch KeyExists(s.head.data, key) {
 	case true:
 		delete(s.tail.data, key)
 		delete(s.head.data, key)
@@ -193,14 +190,25 @@ func (s *Store) Begin() error {
 }
 
 func (s *Store) Commit() error {
+	if s.Size() <= 2 {
+		return NoTransactionStarted
+	}
 	s.Push(make(Data))
 	return nil
 }
 
 func (s *Store) Rollback() error {
-	_, err := s.Pop()
+	d, err := s.Pop()
+	if err != nil {
+		return err
+	}
 	for k, v := range s.tail.data {
 		s.head.data[k] = v
 	}
-	return err
+	for k, _ := range d {
+		if !KeyExists(s.tail.data, k) {
+			delete(s.head.data, k)
+		}
+	}
+	return nil
 }

@@ -44,12 +44,13 @@ func (s *Store) Push(d Data) *Store {
 
 func (s *Store) Pop() (d Data, err error) {
 	if s.tail == nil {
-		err = StoreEmpty
+		err = NoTransactionStarted
 	} else {
 		d = s.tail.data
-		s.tail = s.tail.prev
-		if s.tail == nil {
-			s.head = nil
+		if s.tail == s.head {
+			err = NoTransactionStarted
+		} else {
+			s.tail = s.tail.prev
 		}
 	}
 	return d, err
@@ -66,7 +67,12 @@ func (s Store) Size() int {
 func (s Store) Print() {
 	dashes := strings.Repeat("-", 50)
 	fmt.Println(dashes)
+	fmt.Println("store head: ", s.head)
+	fmt.Println("store tail: ", s.tail)
+	fmt.Println(dashes)
 	for n := s.First(); n != nil; n = n.Next() {
 		fmt.Printf("%v\n", n.data)
 	}
+	fmt.Println(dashes)
+	fmt.Println("Size: ", s.Size())
 }
