@@ -18,7 +18,6 @@ const (
 	CannotDecrStr        CacheError = "cannor decrement string"
 	DoesNotExist         CacheError = "key does not exist"
 	NoTransactionStarted CacheError = "there is no transaction started"
-	// StoreEmpty           CacheError = "store is empty"
 )
 
 var actions = map[string]interface{}{
