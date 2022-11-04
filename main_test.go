@@ -52,50 +52,11 @@ func TestValidateInput(t *testing.T) {
 	}
 }
 
-func TestCopyMap(t *testing.T) {
-
-	tests := []struct {
-		s        StorageInterface
-		fromelem bool
-	}{
-		{
-			StorageInterface{
-				elem: map[string]interface{}{
-					"test1": 1,
-					"test2": "test",
-				},
-				transaction: NewStack(),
-			},
-			true,
-		},
-		{
-			StorageInterface{
-				elem:        make(map[string]interface{}),
-				transaction: NewStack(),
-			},
-			false,
-		},
-	}
-
-	for i, tt := range tests {
-		transaction := map[string]interface{}{"key": 1, "key1": "string"}
-		tt.s.transaction.Push(&Node{transaction})
-		switch tt.fromelem {
-		case true:
-			tt.s.CopyMap(tt.fromelem)
-			transaction = tt.s.transaction.Pop().value
-		default:
-			tt.s.CopyMap(tt.fromelem)
-		}
-		assert.Equal(t, tt.s.elem, transaction, "test[%d]: elem(%s) -> transaction.elem(%s)", i, tt.s.elem, transaction)
-	}
-}
-
 func TestSet(t *testing.T) {
-	s := StorageInterface{
-		elem:        make(map[string]interface{}),
-		transaction: NewStack(),
-	}
+
+	store := new(Store)
+	store.Push(make(Data))
+	store.Push(make(Data))
 	tests := []struct {
 		key   string
 		value string
@@ -105,82 +66,74 @@ func TestSet(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		s.Set(tt.key, tt.value)
-		switch s.elem[tt.key].(type) {
+		store.Set(tt.key, tt.value)
+		switch store.head.data[tt.key].(type) {
 		case string:
-			assert.Equal(t, "value", s.elem[tt.key], "test[%d]: {%s: %s}", i, tt.key, tt.value)
+			assert.Equal(t, "value", store.head.data[tt.key], "test[%d]: {%s: %s}", i, tt.key, tt.value)
 		case int:
-			assert.Equal(t, 1, s.elem[tt.key], "test[%d]: {%s: %s}", i, tt.key, tt.value)
+			assert.Equal(t, 1, store.head.data[tt.key], "test[%d]: {%s: %s}", i, tt.key, tt.value)
 		}
 	}
 }
 
 func TestGet(t *testing.T) {
-	s := StorageInterface{
-		elem: map[string]interface{}{
-			"test1": 1,
-			"test2": "test",
-		},
-		transaction: NewStack(),
-	}
+	store := new(Store)
+	store.Push(make(Data))
+	store.Push(make(Data))
+	store.Set("test1", "1")
 	tests := []struct {
-		s         StorageInterface
+		s         *Store
 		key       string
 		hasError  bool
 		errorKind error
 	}{
-		{s, "test1", false, nil},
-		{s, "key", true, DoesNotExist},
+		{store, "test1", false, nil},
+		{store, "key", true, DoesNotExist},
 	}
 
 	for i, tt := range tests {
-		err := s.Get(tt.key)
+		err := store.Get(tt.key)
 		if tt.hasError {
 			assert.Error(t, err, "test[%d]: %s", i, tt.key)
 			assert.IsType(t, tt.errorKind, err)
 		} else {
-			assert.True(t, KeyExists(tt.s.elem, tt.key), "test[%d]: %s", i, tt.key)
+			assert.True(t, KeyExists(tt.s.head.data, tt.key), "test[%d]: %s", i, tt.key)
 		}
 	}
 }
 
 func TestDelete(t *testing.T) {
-	s := StorageInterface{
-		elem: map[string]interface{}{
-			"test1": 1,
-			"test2": "test",
-		},
-		transaction: NewStack(),
-	}
+	store := new(Store)
+	store.Push(make(Data))
+	store.Push(make(Data))
+	store.Set("test1", "1")
 	tests := []struct {
-		s         StorageInterface
+		s         *Store
 		key       string
 		hasError  bool
 		errorKind error
 	}{
-		{s, "test1", false, nil},
-		{s, "key", true, DoesNotExist},
+		{store, "test1", false, nil},
+		{store, "key", true, DoesNotExist},
 	}
 
 	for i, tt := range tests {
-		err := s.Delete(tt.key)
+		err := store.Delete(tt.key)
 		if tt.hasError {
 			assert.Error(t, err, "test[%d]: %s", i, tt.key)
 			assert.IsType(t, tt.errorKind, err)
 		} else {
-			assert.False(t, KeyExists(tt.s.elem, tt.key), "test[%d]: %s", i, tt.key)
+			assert.False(t, KeyExists(tt.s.head.data, tt.key), "test[%d]: %s", i, tt.key)
 		}
 	}
 }
 
 func TestIncr(t *testing.T) {
-	s := StorageInterface{
-		elem: map[string]interface{}{
-			"test1": 1,
-			"test2": "test",
-		},
-		transaction: NewStack(),
-	}
+	store := new(Store)
+	store.Push(make(Data))
+	store.Push(make(Data))
+	store.Set("test1", "1")
+	store.Set("test2", "test")
 	tests := []struct {
 		key       string
 		value     int
@@ -192,24 +145,22 @@ func TestIncr(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		err := s.Incr(tt.key)
+		err := store.Incr(tt.key)
 		if tt.hasError {
 			assert.Error(t, err, "test[%d]: %s", i, tt.key)
 			assert.IsType(t, tt.errorKind, err)
 		} else {
-			assert.Equal(t, s.elem[tt.key], tt.value, "test[%d]: %s", i, tt.key)
+			assert.Equal(t, store.head.data[tt.key], tt.value, "test[%d]: %s", i, tt.key)
 		}
 	}
 }
 
 func TestDecr(t *testing.T) {
-	s := StorageInterface{
-		elem: map[string]interface{}{
-			"test1": 1,
-			"test2": "test",
-		},
-		transaction: NewStack(),
-	}
+	store := new(Store)
+	store.Push(make(Data))
+	store.Push(make(Data))
+	store.Set("test1", "1")
+	store.Set("test2", "test")
 	tests := []struct {
 		key       string
 		value     int
@@ -221,12 +172,12 @@ func TestDecr(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		err := s.Decr(tt.key)
+		err := store.Decr(tt.key)
 		if tt.hasError {
 			assert.Error(t, err, "test[%d]: %s", i, tt.key)
 			assert.IsType(t, tt.errorKind, err)
 		} else {
-			assert.Equal(t, s.elem[tt.key], tt.value, "test[%d]: %s", i, tt.key)
+			assert.Equal(t, store.head.data[tt.key], tt.value, "test[%d]: %s", i, tt.key)
 		}
 	}
 }
